@@ -1,0 +1,15 @@
+/* App.css - simple dark theme */
+body { margin:0; font-family: Arial, Helvetica, sans-serif; background:#071026; color:#e6eef8; }
+.loginPage { text-align:center; margin-top:100px; }
+.uploader { max-width:1000px; margin:30px auto; padding:20px; background:#071225; border-radius:10px; }
+.tabs { margin-bottom:12px; }
+.tabs button { margin-right:8px; padding:8px 12px; border-radius:8px; border:0; background:#24314a; color:#fff; cursor:pointer; }
+.tabs button.active { background:#ff8a00; color:#071025; }
+.dropzone { border:2px dashed #2a3b55; padding:30px; text-align:center; border-radius:8px; position:relative; margin-bottom:12px; }
+.dropzone input[type=file] { position:absolute; left:0; top:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.selectedFiles { margin-top:12px; }
+.selItem { display:flex; justify-content:space-between; gap:10px; background:#0b1626; padding:8px 10px; border-radius:6px; margin-bottom:6px; }
+.uploadAllBtn { margin-top:8px; padding:8px 14px; border-radius:6px; border:0; background:#2ea44f; color:#fff; cursor:pointer; }
+.fileGrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:12px; }
+.fileCard { background:#051427; padding:10px; border-radius:8px; text-align:center; }
+.fileCard img, .fileCard video { width:100%; height:120px; object-fit:cover; border-radius:6px; }
