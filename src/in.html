@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Databox — Google Drive Backup</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- LOGIN VIEW -->
+    <div id="loginView" class="card center">
+      <h1>Databox</h1>
+      <p class="small">Backup files to Google Drive inside a folder named <strong>Databox</strong>.</p>
+      <button id="signinBtn" class="btn btn-primary">Sign in with Google</button>
+      <p class="small muted">If you see "App isn't verified" click Advanced → Continue (or better: add your account as Test User in Cloud Console).</p>
+    </div>
+
+    <!-- APP VIEW (hidden until login) -->
+    <div id="appView" style="display:none">
+      <header class="card row space-between">
+        <div>
+          <h2>Databox</h2>
+          <div id="who" class="small">—</div>
+        </div>
+        <div style="text-align:right">
+          <div id="quotaText" class="small">Quota: checking...</div>
+          <button id="signoutBtn" class="btn btn-danger">Sign out</button>
+        </div>
+      </header>
+
+      <section class="card">
+        <h3>Upload files</h3>
+        <div class="row">
+          <div>
+            <label><input type="radio" name="fileType" value="images" checked> Images</label>
+            <label><input type="radio" name="fileType" value="videos"> Videos</label>
+            <label><input type="radio" name="fileType" value="documents"> Documents</label>
+          </div>
+        </div>
+
+        <div id="dropZone" class="dropzone">
+          <p>Drag & drop files here or choose from disk</p>
+          <button id="chooseBtn" class="btn">Choose files</button>
+          <input id="fileInput" type="file" multiple style="display:none" />
+        </div>
+
+        <div id="uploadStatus" class="small muted" style="margin-top:8px"></div>
+      </section>
+
+      <section class="card">
+        <h3>Your Databox files</h3>
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="images">Images <span id="imagesCount">0</span></button>
+          <button class="tab-btn" data-tab="videos">Videos <span id="videosCount">0</span></button>
+          <button class="tab-btn" data-tab="documents">Documents <span id="documentsCount">0</span></button>
+        </div>
+
+        <div id="imagesGrid" class="grid"></div>
+        <div id="videosGrid" class="grid" style="display:none"></div>
+        <div id="documentsGrid" class="grid" style="display:none"></div>
+      </section>
+    </div>
+
+  </div>
+
+  <!-- Google libraries -->
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
+  <script src="script.js"></script>
+</body>
+</html>
