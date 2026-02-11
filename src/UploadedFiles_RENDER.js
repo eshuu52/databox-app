@@ -15,6 +15,8 @@ import {
   FaFile
 } from "react-icons/fa";
 
+const BACKEND_URL = "https://databox-app.onrender.com";
+
 function UploadedFiles({ user, refreshKey, setRefreshKey }) {
   const [files, setFiles] = useState({
     images: [],
@@ -35,7 +37,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey }) {
     Promise.all(
       categories.map(cat =>
         axios
-          .get(`http://localhost:5000/files/${user.userId}/${cat}`)
+          .get(`${BACKEND_URL}/files/${user.userId}/${cat}`)
           .then(res => ({ cat, files: res.data }))
           .catch(() => ({ cat, files: [] }))
       )
@@ -123,7 +125,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey }) {
     if (!confirmDelete) return;
 
     try {
-      await axios.post("http://localhost:5000/delete", {
+      await axios.post(`${BACKEND_URL}/delete`, {
         userId: user.userId,
         category: cat,
         fileName: fileName
@@ -244,7 +246,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey }) {
             ) : (
               <>
                 <a
-                  href={`http://localhost:5000/uploads/${user.userId}/${cat}/${file}`}
+                  href={`${BACKEND_URL}/uploads/${user.userId}/${cat}/${file}`}
                   target="_blank"
                   rel="noreferrer"
                   style={{
