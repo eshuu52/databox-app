@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from "react";
-import UploadedFiles from "./UploadedFiles";
+import UploadedFiles from "./UploadedFiles_RENDER";
 import axios from "axios";
+
+const BACKEND_URL = "https://databox-app.onrender.com";
 
 function Upload({ user, onLogout }) {
   const fileInputRef = useRef();
@@ -13,7 +15,7 @@ function Upload({ user, onLogout }) {
   useEffect(() => {
     const testServer = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/ping", { timeout: 5000 });
+         const response = await axios.get(`${BACKEND_URL}/ping`, { timeout: 5000 });
         console.log("Server ping successful:", response.data);
         setServerStatus("connected");
       } catch (error) {
