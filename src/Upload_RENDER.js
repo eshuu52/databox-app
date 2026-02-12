@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import UploadedFiles from "./UploadedFiles_RENDER";
+import UploadedFiles from "./UploadedFiles";
 import axios from "axios";
 
 const BACKEND_URL = "https://databox-app.onrender.com";
@@ -37,7 +37,7 @@ function Upload({ user, onLogout }) {
     }
 
     if (serverStatus === "disconnected") {
-      alert("Error: Cannot connect to server. Make sure http://localhost:5000 is running");
+      alert("Error: Cannot connect to server. Please wait for server to wake up or try again.");
       return;
     }
 
@@ -86,7 +86,8 @@ function Upload({ user, onLogout }) {
 
     setUploading(true);
     try {
-      await axios.post("http://localhost:5000/upload", formData, {
+      // ✅ FIXED: Changed from localhost to Render URL
+      await axios.post(`${BACKEND_URL}/upload`, formData, {
         headers: {
           "x-user-id": user.userId,
           "x-folder": selectedCategory
