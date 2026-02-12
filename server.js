@@ -5,7 +5,19 @@ const cors = require("cors");
 const multer = require("multer");
 const app = express();
 
-app.use(cors());
+// ✅ FIXED: Proper CORS Configuration for Netlify + Render
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://eshuu52.netlify.app',
+    'https://databox-app.onrender.com'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-folder']
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -149,7 +161,7 @@ app.post('/rename', (req, res) => {
   }
 });
 
-// ✅ DELETE ENDPOINT - NEW!
+// ✅ DELETE ENDPOINT
 app.post('/delete', (req, res) => {
   const { userId, category, fileName } = req.body;
   
@@ -200,7 +212,7 @@ app.post('/delete', (req, res) => {
 });
 
 // Start the server
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Upload endpoint: http://localhost:${PORT}/upload`);

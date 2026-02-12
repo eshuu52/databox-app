@@ -103,7 +103,8 @@ function UploadedFiles({ user, refreshKey, setRefreshKey }) {
       : newName.replace(/\.[^.]+$/, "") + ext;
 
     try {
-      await axios.post("http://localhost:5000/rename", {
+      // ✅ FIXED: Changed from localhost to Render URL
+      await axios.post(`${BACKEND_URL}/rename`, {
         userId: user.userId,
         category: cat,
         oldName,
