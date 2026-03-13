@@ -2,7 +2,7 @@
 // import UploadedFiles from './UploadedFiles';
 import React, { useState, useEffect } from "react";
 import Login from "./Login";
-import Upload from "./Upload_RENDER";
+import Upload from "./Upload";
 
 function App() {
   const [user, setUser] = useState(null);
