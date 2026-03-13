@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FcImageFile, FcVideoFile, FcFile, FcFolder } from "react-icons/fc";
+import { FcImageFile, FcVideoFile, FcFolder } from "react-icons/fc";
 import {
   FaFilePdf, FaFileWord, FaFileExcel, FaFilePowerpoint, FaFileArchive,
   FaFileAudio, FaFileCode, FaFileAlt, FaFile, FaEye, FaDownload, FaTimes,
@@ -282,7 +282,36 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
           <div key={file} style={{ background: "rgba(255,255,255,0.1)", padding: "1rem",
             borderRadius: "10px", textAlign: "center", border: "1px solid rgba(255,255,255,0.2)" }}>
             {getFileIcon(file)}
-            <p style={{ color: "#fff", margin: "0.5rem 0", wordBreak: "break-word", fontSize: "0.85rem" }}>{file}</p>
+
+            {/* Rename inline for files */}
+            {renaming === file ? (
+              <>
+                <input
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleRename(file, false)}
+                  style={{
+                    width: "100%", padding: "4px", marginBottom: "6px", borderRadius: "4px",
+                    border: "1px solid #fff", background: "rgba(255,255,255,0.1)", color: "#fff",
+                    fontSize: "0.8rem", textAlign: "center"
+                  }}
+                  autoFocus
+                />
+                <div style={{ display: "flex", gap: "4px", justifyContent: "center", marginBottom: "4px" }}>
+                  <button onClick={() => handleRename(file, false)} style={{
+                    background: "#4CAF50", color: "#fff", border: "none", padding: "3px 8px",
+                    borderRadius: "4px", cursor: "pointer", fontSize: "11px"
+                  }}>Save</button>
+                  <button onClick={() => setRenaming(null)} style={{
+                    background: "#757575", color: "#fff", border: "none", padding: "3px 8px",
+                    borderRadius: "4px", cursor: "pointer", fontSize: "11px"
+                  }}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <p style={{ color: "#fff", margin: "0.5rem 0", wordBreak: "break-word", fontSize: "0.85rem" }}>{file}</p>
+            )}
+
             <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center", flexWrap: "wrap" }}>
               {canPreview(file) && (
                 <button onClick={() => handlePreview(file)} style={{
@@ -292,6 +321,10 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
               <button onClick={() => handleDownload(file)} style={{
                 background: "#4CAF50", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
               }}><FaDownload /></button>
+              {/* ✅ Rename button for files */}
+              <button onClick={() => { setRenaming(file); setNewName(file.substring(0, file.lastIndexOf('.')) || file); }} style={{
+                background: "#2196F3", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
+              }}><FaEdit /></button>
               <button onClick={() => handleDelete(file, false)} style={{
                 background: "#f44336", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
               }}><FaTrash /></button>

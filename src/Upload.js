@@ -13,8 +13,6 @@ const ALLOWED_TYPES = {
   documents: null // ✅ null = allow everything
 };
 
-const STORAGE_LIMIT = 15 * 1024 * 1024 * 1024; // 15 GB in bytes
-
 function formatBytes(bytes) {
   if (bytes === 0) return "0 B";
   const k = 1024;
@@ -44,6 +42,7 @@ function Upload({ user, onLogout }) {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   // ✅ Fetch storage usage
   const fetchStorage = async () => {
     if (!user?.userId) return;
@@ -66,16 +65,17 @@ function Upload({ user, onLogout }) {
       }
     };
     testServer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const interval = setInterval(() => {
       if (serverStatus !== "connected") testServer();
     }, 10000);
     return () => clearInterval(interval);
-  }, [serverStatus]);
+  }, [serverStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refresh storage after uploads
   useEffect(() => {
     if (refreshKey > 0) fetchStorage();
-  }, [refreshKey]);
+  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const uploadFiles = async (fileEntries) => {
     if (!user?.userId) { alert("Error: Please log in again."); return; }
