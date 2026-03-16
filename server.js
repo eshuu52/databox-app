@@ -30,7 +30,8 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
+    // ✅ No timestamp - use original filename only
+    cb(null, file.originalname);
   }
 });
 
@@ -48,12 +49,11 @@ app.get("/ping", (req, res) => {
   res.json({ status: "ok", message: "Server is running" });
 });
 
-// ✅ Storage usage endpoint
+// Storage usage endpoint
 app.get('/storage/:userId', (req, res) => {
   const userId = req.params.userId;
   const userDir = path.join(__dirname, 'uploads', userId);
 
-  // Recursively get folder size in bytes
   const getFolderSize = (dirPath) => {
     if (!fs.existsSync(dirPath)) return 0;
     let total = 0;
@@ -61,12 +61,9 @@ app.get('/storage/:userId', (req, res) => {
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
       for (const entry of entries) {
         const fullPath = path.join(dirPath, entry.name);
-        if (entry.isDirectory()) {
-          total += getFolderSize(fullPath);
-        } else if (entry.isFile()) {
-          try {
-            total += fs.statSync(fullPath).size;
-          } catch (e) {}
+        if (entry.isDirectory()) total += getFolderSize(fullPath);
+        else if (entry.isFile()) {
+          try { total += fs.statSync(fullPath).size; } catch (e) {}
         }
       }
     } catch (e) {}
@@ -76,14 +73,29 @@ app.get('/storage/:userId', (req, res) => {
   const categories = ["images", "videos", "documents"];
   const byCategory = {};
   let total = 0;
-
   for (const cat of categories) {
     const catSize = getFolderSize(path.join(userDir, cat));
     byCategory[cat] = catSize;
     total += catSize;
   }
-
   res.json({ total, byCategory });
+});
+
+// ✅ NEW: Read text file content for preview
+app.get('/preview/:userId/:category', (req, res) => {
+  const { userId, category } = req.params;
+  const filePath = req.query.file;
+  if (!filePath) return res.status(400).json({ status: "error", message: "Missing file" });
+
+  const fullPath = path.join(__dirname, 'uploads', userId, category, filePath);
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ status: "error", message: "File not found" });
+
+  try {
+    const content = fs.readFileSync(fullPath, 'utf8');
+    res.json({ status: "ok", content });
+  } catch (e) {
+    res.status(500).json({ status: "error", message: "Cannot read file" });
+  }
 });
 
 // Browse
@@ -91,9 +103,7 @@ app.get('/browse/:userId/:category', (req, res) => {
   const { userId, category } = req.params;
   const subPath = req.query.path || "";
   const dirPath = path.join(__dirname, 'uploads', userId, category, subPath);
-
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-
   fs.readdir(dirPath, { withFileTypes: true }, (err, entries) => {
     if (err) return res.json({ folders: [], files: [] });
     res.json({
@@ -108,11 +118,9 @@ app.post('/create-folder', (req, res) => {
   const { userId, category, path: subPath, folderName } = req.body;
   if (!userId || !category || !folderName)
     return res.status(400).json({ status: "error", message: "Missing required fields" });
-
   const dirPath = path.join(__dirname, 'uploads', userId, category, subPath || "", folderName);
   try {
-    if (fs.existsSync(dirPath))
-      return res.status(409).json({ status: "error", message: "Folder already exists" });
+    if (fs.existsSync(dirPath)) return res.status(409).json({ status: "error", message: "Folder already exists" });
     fs.mkdirSync(dirPath, { recursive: true });
     res.json({ status: "ok", message: "Folder created" });
   } catch (error) {
@@ -125,14 +133,11 @@ app.post('/rename', (req, res) => {
   const { userId, category, path: subPath, oldName, newName, isFolder } = req.body;
   if (!userId || !category || !oldName || !newName)
     return res.status(400).json({ status: "error", message: "Missing required fields" });
-
   const dirPath = path.join(__dirname, 'uploads', userId, category, subPath || "");
   const oldPath = path.join(dirPath, oldName);
   const newPath = path.join(dirPath, newName);
-
   if (!fs.existsSync(oldPath)) return res.status(404).json({ status: "error", message: "Item not found" });
   if (fs.existsSync(newPath)) return res.status(409).json({ status: "error", message: "Name already exists" });
-
   try {
     fs.renameSync(oldPath, newPath);
     res.json({ status: "ok", message: "Renamed successfully" });
@@ -146,10 +151,8 @@ app.post('/delete', (req, res) => {
   const { userId, category, path: subPath, fileName, isFolder } = req.body;
   if (!userId || !category || !fileName)
     return res.status(400).json({ status: "error", message: "Missing required fields" });
-
   const itemPath = path.join(__dirname, 'uploads', userId, category, subPath || "", fileName);
   if (!fs.existsSync(itemPath)) return res.status(404).json({ status: "error", message: "Item not found" });
-
   try {
     if (isFolder) fs.rmSync(itemPath, { recursive: true, force: true });
     else fs.unlinkSync(itemPath);
@@ -164,10 +167,8 @@ app.get('/download/:userId/:category', (req, res) => {
   const { userId, category } = req.params;
   const filePath = req.query.file;
   if (!filePath) return res.status(400).json({ status: "error", message: "Missing file parameter" });
-
   const fullFilePath = path.join(__dirname, 'uploads', userId, category, filePath);
   if (!fs.existsSync(fullFilePath)) return res.status(404).json({ status: "error", message: "File not found" });
-
   res.download(fullFilePath, path.basename(filePath), (err) => {
     if (err) res.status(500).json({ status: "error", message: "Download failed" });
   });
@@ -177,5 +178,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`✅ Storage tracking enabled`);
-  console.log(`✅ All file types accepted for documents`);
+  console.log(`✅ No timestamp in filenames`);
+  console.log(`✅ Text file preview enabled`);
 });

@@ -7,15 +7,26 @@ import {
   FaFolderPlus, FaChevronRight, FaHome, FaEdit, FaTrash
 } from "react-icons/fa";
 
-// ✅ Auto-detect: localhost when running locally, Render when deployed
 const BACKEND_URL = window.location.hostname === "localhost"
   ? "http://localhost:5000"
   : "https://databox-app.onrender.com";
+
+// ✅ All file types that can be previewed
+const isImage = (f) => ["jpg","jpeg","png","gif","bmp","webp","svg"].includes(f.split('.').pop().toLowerCase());
+const isPdf = (f) => f.split('.').pop().toLowerCase() === "pdf";
+const isVideo = (f) => ["mp4","webm","ogg","mov"].includes(f.split('.').pop().toLowerCase());
+const isText = (f) => {
+  const ext = f.split('.').pop().toLowerCase();
+  return ["txt","md","json","xml","csv","conf","config","ini","log","yml","yaml",
+          "sh","bat","env","js","py","html","css","ts","jsx","tsx","sql","toml"].includes(ext);
+};
+const canPreview = (f) => isImage(f) || isPdf(f) || isVideo(f) || isText(f);
 
 function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, currentPath, setCurrentPath }) {
   const [items, setItems] = useState({ folders: [], files: [] });
   const [error, setError] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
+  const [previewContent, setPreviewContent] = useState(null); // for text files
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [renaming, setRenaming] = useState(null);
@@ -31,8 +42,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
   }, [user, selectedCategory, currentPath, refreshKey]);
 
   const openFolder = (folderName) => {
-    const newPath = currentPath ? `${currentPath}/${folderName}` : folderName;
-    setCurrentPath(newPath);
+    setCurrentPath(currentPath ? `${currentPath}/${folderName}` : folderName);
   };
 
   const goBack = () => {
@@ -43,7 +53,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
   };
 
   const navigateTo = (index) => {
-    if (index === -1) { setCurrentPath(""); }
+    if (index === -1) setCurrentPath("");
     else {
       const parts = currentPath.split('/');
       setCurrentPath(parts.slice(0, index + 1).join('/'));
@@ -54,17 +64,12 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
     if (!newFolderName.trim()) return;
     try {
       await axios.post(`${BACKEND_URL}/create-folder`, {
-        userId: user.userId,
-        category: selectedCategory,
-        path: currentPath,
-        folderName: newFolderName
+        userId: user.userId, category: selectedCategory,
+        path: currentPath, folderName: newFolderName
       });
-      setNewFolderName("");
-      setCreatingFolder(false);
+      setNewFolderName(""); setCreatingFolder(false);
       setRefreshKey(prev => prev + 1);
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to create folder");
-    }
+    } catch (err) { alert(err.response?.data?.message || "Failed to create folder"); }
   };
 
   const handleRename = async (oldName, isFolder) => {
@@ -95,15 +100,21 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
     } catch (err) { alert(err.response?.data?.message || "Failed to delete"); }
   };
 
-  const canPreview = (fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    return ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "pdf"].includes(ext);
-  };
-
-  const handlePreview = (fileName) => {
+  // ✅ Handle preview - text files fetch content, others use URL
+  const handlePreview = async (fileName) => {
     const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
     const fileUrl = `${BACKEND_URL}/uploads/${user.userId}/${selectedCategory}/${filePath}`;
+    setPreviewContent(null);
     setPreviewFile({ fileName, fileUrl, filePath });
+
+    if (isText(fileName)) {
+      try {
+        const res = await axios.get(`${BACKEND_URL}/preview/${user.userId}/${selectedCategory}?file=${encodeURIComponent(filePath)}`);
+        setPreviewContent(res.data.content);
+      } catch (e) {
+        setPreviewContent("Could not load file content.");
+      }
+    }
   };
 
   const handleDownload = async (fileName) => {
@@ -123,27 +134,21 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
   const getFileIcon = filename => {
     const ext = filename.split(".").pop().toLowerCase();
     const style = { fontSize: "2.5rem", marginBottom: "0.5rem" };
-    if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(ext)) return <FcImageFile style={style} />;
-    if (["mp4", "avi", "mov", "wmv", "flv", "mkv", "webm"].includes(ext)) return <FcVideoFile style={style} />;
+    if (["jpg","jpeg","png","gif","bmp","webp","svg"].includes(ext)) return <FcImageFile style={style} />;
+    if (["mp4","avi","mov","wmv","flv","mkv","webm"].includes(ext)) return <FcVideoFile style={style} />;
     if (ext === "pdf") return <FaFilePdf style={{ ...style, color: "#e74c3c" }} />;
-    if (["doc", "docx"].includes(ext)) return <FaFileWord style={{ ...style, color: "#185abd" }} />;
-    if (["xls", "xlsx"].includes(ext)) return <FaFileExcel style={{ ...style, color: "#21a366" }} />;
-    if (["ppt", "pptx"].includes(ext)) return <FaFilePowerpoint style={{ ...style, color: "#d24726" }} />;
-    if (["zip", "rar", "7z"].includes(ext)) return <FaFileArchive style={{ ...style, color: "#f1c40f" }} />;
-    if (["mp3", "wav"].includes(ext)) return <FaFileAudio style={{ ...style, color: "#9b59b6" }} />;
-    if (["js", "py", "html"].includes(ext)) return <FaFileCode style={{ ...style, color: "#2980b9" }} />;
-    if (["txt", "md"].includes(ext)) return <FaFileAlt style={{ ...style, color: "#34495e" }} />;
+    if (["doc","docx"].includes(ext)) return <FaFileWord style={{ ...style, color: "#185abd" }} />;
+    if (["xls","xlsx"].includes(ext)) return <FaFileExcel style={{ ...style, color: "#21a366" }} />;
+    if (["ppt","pptx"].includes(ext)) return <FaFilePowerpoint style={{ ...style, color: "#d24726" }} />;
+    if (["zip","rar","7z"].includes(ext)) return <FaFileArchive style={{ ...style, color: "#f1c40f" }} />;
+    if (["mp3","wav"].includes(ext)) return <FaFileAudio style={{ ...style, color: "#9b59b6" }} />;
+    if (["js","py","html","css","ts","sh","jsx","tsx"].includes(ext)) return <FaFileCode style={{ ...style, color: "#2980b9" }} />;
+    if (["txt","md","log","conf","ini","yml","yaml","json","xml","env","config"].includes(ext)) return <FaFileAlt style={{ ...style, color: "#27ae60" }} />;
     return <FaFile style={{ ...style, color: "#888" }} />;
   };
 
-  // Filter folders and files by search query
-  const filteredFolders = items.folders.filter(f =>
-    f.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const filteredFiles = items.files.filter(f =>
-    f.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
+  const filteredFolders = items.folders.filter(f => f.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredFiles = items.files.filter(f => f.toLowerCase().includes(searchQuery.toLowerCase()));
   const breadcrumbs = currentPath ? currentPath.split('/') : [];
   const totalItems = items.folders.length + items.files.length;
   const filteredTotal = filteredFolders.length + filteredFiles.length;
@@ -187,32 +192,16 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
 
       {/* Search bar */}
       <div style={{ marginBottom: "1rem", position: "relative" }}>
-        <input
-          type="text"
-          placeholder="🔍 Search files and folders..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px 40px 10px 14px",
-            borderRadius: "8px",
-            border: "1px solid rgba(255,255,255,0.3)",
-            background: "rgba(255,255,255,0.1)",
-            color: "#fff",
-            fontSize: "0.95rem",
-            outline: "none",
-            boxSizing: "border-box"
-          }}
-        />
+        <input type="text" placeholder="🔍 Search files and folders..."
+          value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ width: "100%", padding: "10px 40px 10px 14px", borderRadius: "8px",
+            border: "1px solid rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.1)",
+            color: "#fff", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }} />
         {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            style={{
-              position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)",
-              background: "none", border: "none", color: "rgba(255,255,255,0.6)",
-              cursor: "pointer", fontSize: "16px", padding: "0"
-            }}
-          >✕</button>
+          <button onClick={() => setSearchQuery("")} style={{
+            position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontSize: "16px"
+          }}>✕</button>
         )}
       </div>
 
@@ -282,37 +271,27 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
           <div key={file} style={{ background: "rgba(255,255,255,0.1)", padding: "1rem",
             borderRadius: "10px", textAlign: "center", border: "1px solid rgba(255,255,255,0.2)" }}>
             {getFileIcon(file)}
-
-            {/* Rename inline for files */}
             {renaming === file ? (
               <>
-                <input
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
+                <input value={newName} onChange={e => setNewName(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleRename(file, false)}
-                  style={{
-                    width: "100%", padding: "4px", marginBottom: "6px", borderRadius: "4px",
+                  style={{ width: "100%", padding: "4px", marginBottom: "6px", borderRadius: "4px",
                     border: "1px solid #fff", background: "rgba(255,255,255,0.1)", color: "#fff",
-                    fontSize: "0.8rem", textAlign: "center"
-                  }}
-                  autoFocus
-                />
+                    fontSize: "0.8rem", textAlign: "center" }} autoFocus />
                 <div style={{ display: "flex", gap: "4px", justifyContent: "center", marginBottom: "4px" }}>
                   <button onClick={() => handleRename(file, false)} style={{
                     background: "#4CAF50", color: "#fff", border: "none", padding: "3px 8px",
-                    borderRadius: "4px", cursor: "pointer", fontSize: "11px"
-                  }}>Save</button>
+                    borderRadius: "4px", cursor: "pointer", fontSize: "11px" }}>Save</button>
                   <button onClick={() => setRenaming(null)} style={{
                     background: "#757575", color: "#fff", border: "none", padding: "3px 8px",
-                    borderRadius: "4px", cursor: "pointer", fontSize: "11px"
-                  }}>Cancel</button>
+                    borderRadius: "4px", cursor: "pointer", fontSize: "11px" }}>Cancel</button>
                 </div>
               </>
             ) : (
               <p style={{ color: "#fff", margin: "0.5rem 0", wordBreak: "break-word", fontSize: "0.85rem" }}>{file}</p>
             )}
-
             <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center", flexWrap: "wrap" }}>
+              {/* ✅ Preview button shows for ALL previewable files */}
               {canPreview(file) && (
                 <button onClick={() => handlePreview(file)} style={{
                   background: "#9C27B0", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
@@ -321,7 +300,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
               <button onClick={() => handleDownload(file)} style={{
                 background: "#4CAF50", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
               }}><FaDownload /></button>
-              {/* ✅ Rename button for files */}
               <button onClick={() => { setRenaming(file); setNewName(file.substring(0, file.lastIndexOf('.')) || file); }} style={{
                 background: "#2196F3", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
               }}><FaEdit /></button>
@@ -349,28 +327,52 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* ✅ Preview Modal - supports images, PDF, video, and TEXT files */}
       {previewFile && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
           background: "rgba(0,0,0,0.95)", zIndex: 9999, display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center", padding: "2rem" }}
-          onClick={() => setPreviewFile(null)}>
-          <button onClick={() => setPreviewFile(null)} style={{ position: "absolute", top: "20px", right: "20px",
-            background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", fontSize: "30px",
-            cursor: "pointer", borderRadius: "50%", width: "50px", height: "50px" }}><FaTimes /></button>
-          <h2 style={{ color: "#fff", marginBottom: "1rem" }}>{previewFile.fileName}</h2>
-          <div style={{ maxWidth: "90%", maxHeight: "70%", marginBottom: "1rem" }} onClick={(e) => e.stopPropagation()}>
-            {previewFile.fileName.toLowerCase().endsWith('.pdf') ? (
-              <iframe src={previewFile.fileUrl} style={{ width: "800px", height: "600px", border: "none", borderRadius: "10px" }} title="PDF" />
-            ) : (
+          onClick={() => { setPreviewFile(null); setPreviewContent(null); }}>
+          <button onClick={() => { setPreviewFile(null); setPreviewContent(null); }} style={{
+            position: "absolute", top: "20px", right: "20px", background: "rgba(255,255,255,0.2)",
+            border: "none", color: "#fff", fontSize: "30px", cursor: "pointer", borderRadius: "50%",
+            width: "50px", height: "50px" }}><FaTimes /></button>
+          <h2 style={{ color: "#fff", marginBottom: "1rem", fontSize: "1rem" }}>{previewFile.fileName}</h2>
+
+          <div style={{ maxWidth: "90%", width: "800px", maxHeight: "70vh", marginBottom: "1rem",
+            overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+
+            {/* Image preview */}
+            {isImage(previewFile.fileName) && (
               <img src={previewFile.fileUrl} alt={previewFile.fileName}
-                style={{ maxWidth: "100%", maxHeight: "600px", borderRadius: "10px" }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                  e.target.parentElement.innerHTML = `<p style="color:#ff6b6b;padding:2rem;">Failed to load image.<br/>URL: ${previewFile.fileUrl}</p>`;
-                }} />
+                style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: "10px" }} />
+            )}
+
+            {/* PDF preview */}
+            {isPdf(previewFile.fileName) && (
+              <iframe src={previewFile.fileUrl} style={{ width: "100%", height: "65vh", border: "none", borderRadius: "10px" }} title="PDF" />
+            )}
+
+            {/* Video preview */}
+            {isVideo(previewFile.fileName) && (
+              <video controls style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: "10px" }}>
+                <source src={previewFile.fileUrl} />
+              </video>
+            )}
+
+            {/* ✅ Text/code/conf/yml preview */}
+            {isText(previewFile.fileName) && (
+              <pre style={{
+                background: "rgba(255,255,255,0.05)", color: "#e0e0e0", padding: "1.5rem",
+                borderRadius: "10px", fontSize: "0.85rem", whiteSpace: "pre-wrap",
+                wordBreak: "break-word", textAlign: "left", maxHeight: "65vh",
+                overflow: "auto", border: "1px solid rgba(255,255,255,0.1)"
+              }}>
+                {previewContent !== null ? previewContent : "Loading..."}
+              </pre>
             )}
           </div>
+
           <button onClick={(e) => { e.stopPropagation(); handleDownload(previewFile.fileName); }} style={{
             background: "#4CAF50", color: "#fff", padding: "12px 24px", borderRadius: "8px", border: "none",
             cursor: "pointer", fontWeight: "600", fontSize: "16px", display: "flex", alignItems: "center", gap: "8px"
