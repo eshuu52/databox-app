@@ -24,9 +24,8 @@ function Upload({ user, onLogout }) {
   const [serverStatus, setServerStatus] = useState("connecting");
   const [currentPath, setCurrentPath] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
-  const [storageInfo, setStorageInfo] = useState(null); // { used, byCategory }
+  const [storageInfo, setStorageInfo] = useState(null);
 
-  // ✅ Set webkitdirectory on DOM directly
   useEffect(() => {
     if (folderInputRef.current) {
       folderInputRef.current.setAttribute("webkitdirectory", "");
@@ -35,9 +34,7 @@ function Upload({ user, onLogout }) {
     }
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  // ✅ Fetch storage usage
-  const fetchStorage = async () => {
+  const fetchStorage = async () => { // eslint-disable-line react-hooks/exhaustive-deps
     if (!user?.userId) return;
     try {
       const res = await axios.get(`${BACKEND_URL}/storage/${user.userId}`);
@@ -52,22 +49,20 @@ function Upload({ user, onLogout }) {
       try {
         await axios.get(`${BACKEND_URL}/ping`, { timeout: 15000 });
         setServerStatus("connected");
-        fetchStorage();
+        fetchStorage(); // eslint-disable-line react-hooks/exhaustive-deps
       } catch (error) {
         setServerStatus("disconnected");
       }
     };
     testServer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     const interval = setInterval(() => {
       if (serverStatus !== "connected") testServer();
     }, 10000);
     return () => clearInterval(interval);
   }, [serverStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Refresh storage after uploads
   useEffect(() => {
-    if (refreshKey > 0) fetchStorage();
+    if (refreshKey > 0) fetchStorage(); // eslint-disable-line react-hooks/exhaustive-deps
   }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const uploadFiles = async (fileEntries) => {
@@ -85,24 +80,14 @@ function Upload({ user, onLogout }) {
     for (const entry of fileEntries) {
       const { file, relativePath } = entry;
 
-      // Skip hidden/system files
+      // Skip hidden/system files only
       if (file.name.startsWith('.') || file.name === 'Thumbs.db' || file.size === 0) {
         skipped++;
         setUploadProgress(p => ({ ...p, current: p.current + 1 }));
         continue;
       }
 
-      // ✅ Type check - documents allows ALL types
-      if (ALLOWED_TYPES[selectedCategory] !== null) {
-        const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
-        if (!ALLOWED_TYPES[selectedCategory].includes(ext)) {
-          skipped++;
-          setUploadProgress(p => ({ ...p, current: p.current + 1 }));
-          continue;
-        }
-      }
-
-      // Build folder path
+      // ✅ NO TYPE RESTRICTIONS - all files upload to any category
       let folderPath = selectedCategory;
       if (currentPath) folderPath += `/${currentPath}`;
       if (relativePath) {
@@ -134,7 +119,7 @@ function Upload({ user, onLogout }) {
     setRefreshKey(prev => prev + 1);
 
     let msg = `✅ ${uploaded} files uploaded!`;
-    if (skipped > 0) msg += `\n⚠️ ${skipped} skipped (system/hidden files)`;
+    if (skipped > 0) msg += `\n⚠️ ${skipped} skipped (hidden/system files)`;
     if (failed > 0) msg += `\n❌ ${failed} failed`;
     if (skipped > 0 || failed > 0) alert(msg);
   };
@@ -206,15 +191,11 @@ function Upload({ user, onLogout }) {
         animation: "float 25s infinite ease-in-out reverse" }}></div>
 
       <div style={{ position: "relative", zIndex: 1 }}>
-        {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center",
           marginBottom: "2rem", background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)",
           padding: "1.5rem", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.2)" }}>
           <h1 style={{ color: "#fff", margin: 0, fontSize: "2rem" }}>📁 Upload files to Databox</h1>
-
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
-
-            {/* ✅ Storage widget - 15 GB limit */}
             {storageInfo && (() => {
               const LIMIT = 15 * 1024 * 1024 * 1024;
               const usedPct = Math.min((storageInfo.total / LIMIT) * 100, 100);
@@ -247,7 +228,6 @@ function Upload({ user, onLogout }) {
                 </div>
               );
             })()}
-
             <div style={{ fontSize: "0.9rem", padding: "0.75rem 1.25rem", borderRadius: "12px",
               background: serverStatus === "connected" ? "rgba(76,175,80,0.9)" : "rgba(255,107,107,0.9)",
               color: "white", fontWeight: "600" }}>
@@ -259,7 +239,6 @@ function Upload({ user, onLogout }) {
           </div>
         </div>
 
-        {/* Category selection */}
         <p style={{ color: "#fff", fontSize: "1.1rem", marginBottom: "1rem" }}>
           Select a category and upload your files
         </p>
@@ -275,7 +254,6 @@ function Upload({ user, onLogout }) {
           ))}
         </div>
 
-        {/* Upload area */}
         <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
           style={{ border: `3px dashed ${isDragOver ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)"}`,
             borderRadius: "20px", padding: "3rem", textAlign: "center", marginBottom: "2rem",
@@ -291,11 +269,7 @@ function Upload({ user, onLogout }) {
             Uploading to: <strong>{selectedCategory}</strong>{currentPath ? ` > ${currentPath}` : ""}
           </p>
           <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "1.5rem", fontSize: "0.85rem" }}>
-            {selectedCategory === "documents"
-              ? "✅ All file types accepted (txt, conf, log, pdf, zip, and more!)"
-              : selectedCategory === "images"
-              ? "Allowed: jpg, png, gif, webp, svg, bmp, ico..."
-              : "Allowed: mp4, avi, mov, mkv, webm, m4v..."}
+            ✅ All file types accepted — upload anything!
           </p>
 
           {uploading && (
@@ -329,7 +303,6 @@ function Upload({ user, onLogout }) {
           </div>
         </div>
 
-        {/* File Manager */}
         <div style={{ background: "rgba(255,255,255,0.1)", backdropFilter: "blur(10px)",
           padding: "2rem", borderRadius: "20px", border: "1px solid rgba(255,255,255,0.2)" }}>
           <UploadedFiles
