@@ -6,11 +6,11 @@ const BACKEND_URL = window.location.hostname === "localhost"
   ? "http://localhost:5000"
   : "https://databox-app.onrender.com";
 
-// ✅ Documents accepts ALL file types - no restrictions
+// ✅ No file type restrictions - all files allowed in all categories
 const ALLOWED_TYPES = {
-  images: ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "ico", "tiff", "raw", "heic"],
-  videos: ["mp4", "avi", "mov", "wmv", "flv", "mkv", "webm", "m4v", "3gp", "ts", "vob"],
-  documents: null // ✅ null = allow everything
+  images: null,
+  videos: null,
+  documents: null
 };
 
 function formatBytes(bytes) {
@@ -99,15 +99,7 @@ function Upload({ user, onLogout }) {
         continue;
       }
 
-      // ✅ Type check - documents allows ALL types
-      if (ALLOWED_TYPES[selectedCategory] !== null) {
-        const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : '';
-        if (!ALLOWED_TYPES[selectedCategory].includes(ext)) {
-          skipped++;
-          setUploadProgress(p => ({ ...p, current: p.current + 1 }));
-          continue;
-        }
-      }
+      // ✅ No type restrictions - all files allowed
 
       // Build folder path
       let folderPath = selectedCategory;
@@ -298,11 +290,7 @@ function Upload({ user, onLogout }) {
             Uploading to: <strong>{selectedCategory}</strong>{currentPath ? ` > ${currentPath}` : ""}
           </p>
           <p style={{ color: "rgba(255,255,255,0.6)", marginBottom: "1.5rem", fontSize: "0.85rem" }}>
-            {selectedCategory === "documents"
-              ? "✅ All file types accepted (txt, conf, log, pdf, zip, and more!)"
-              : selectedCategory === "images"
-              ? "Allowed: jpg, png, gif, webp, svg, bmp, ico..."
-              : "Allowed: mp4, avi, mov, mkv, webm, m4v..."}
+            ✅ All file types accepted — upload anything to any category!
           </p>
 
           {uploading && (
