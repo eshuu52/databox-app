@@ -6,6 +6,7 @@ const BACKEND_URL = window.location.hostname === "localhost"
   ? "http://localhost:5000"
   : "https://databox-app.onrender.com";
 
+
 function formatBytes(bytes) {
   if (bytes === 0) return "0 B";
   const k = 1024;
