@@ -6,13 +6,6 @@ const BACKEND_URL = window.location.hostname === "localhost"
   ? "http://localhost:5000"
   : "https://databox-app.onrender.com";
 
-// ✅ Documents accepts ALL file types - no restrictions
-const ALLOWED_TYPES = {
-  images: ["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg", "ico", "tiff", "raw", "heic"],
-  videos: ["mp4", "avi", "mov", "wmv", "flv", "mkv", "webm", "m4v", "3gp", "ts", "vob"],
-  documents: null // ✅ null = allow everything
-};
-
 function formatBytes(bytes) {
   if (bytes === 0) return "0 B";
   const k = 1024;
