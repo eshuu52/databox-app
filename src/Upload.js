@@ -34,7 +34,7 @@ function Upload({ user, onLogout }) {
     }
   }, []);
 
-  const fetchStorage = async () => { // eslint-disable-line react-hooks/exhaustive-deps
+  const fetchStorage = async () => {
     if (!user?.userId) return;
     try {
       const res = await axios.get(`${BACKEND_URL}/storage/${user.userId}`);
@@ -49,7 +49,7 @@ function Upload({ user, onLogout }) {
       try {
         await axios.get(`${BACKEND_URL}/ping`, { timeout: 15000 });
         setServerStatus("connected");
-        fetchStorage(); // eslint-disable-line react-hooks/exhaustive-deps
+        fetchStorage();
       } catch (error) {
         setServerStatus("disconnected");
       }
@@ -59,11 +59,11 @@ function Upload({ user, onLogout }) {
       if (serverStatus !== "connected") testServer();
     }, 10000);
     return () => clearInterval(interval);
-  }, [serverStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [serverStatus]);
 
   useEffect(() => {
-    if (refreshKey > 0) fetchStorage(); // eslint-disable-line react-hooks/exhaustive-deps
-  }, [refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (refreshKey > 0) fetchStorage();
+  }, [refreshKey]);
 
   const uploadFiles = async (fileEntries) => {
     if (!user?.userId) { alert("Error: Please log in again."); return; }
@@ -80,14 +80,12 @@ function Upload({ user, onLogout }) {
     for (const entry of fileEntries) {
       const { file, relativePath } = entry;
 
-      // Skip hidden/system files only
       if (file.name.startsWith('.') || file.name === 'Thumbs.db' || file.size === 0) {
         skipped++;
         setUploadProgress(p => ({ ...p, current: p.current + 1 }));
         continue;
       }
 
-      // ✅ NO TYPE RESTRICTIONS - all files upload to any category
       let folderPath = selectedCategory;
       if (currentPath) folderPath += `/${currentPath}`;
       if (relativePath) {

@@ -11,7 +11,6 @@ const BACKEND_URL = window.location.hostname === "localhost"
   ? "http://localhost:5000"
   : "https://databox-app.onrender.com";
 
-// ✅ All file types that can be previewed
 const isImage = (f) => ["jpg","jpeg","png","gif","bmp","webp","svg"].includes(f.split('.').pop().toLowerCase());
 const isPdf = (f) => f.split('.').pop().toLowerCase() === "pdf";
 const isVideo = (f) => ["mp4","webm","ogg","mov"].includes(f.split('.').pop().toLowerCase());
@@ -26,7 +25,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
   const [items, setItems] = useState({ folders: [], files: [] });
   const [error, setError] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
-  const [previewContent, setPreviewContent] = useState(null); // for text files
+  const [previewContent, setPreviewContent] = useState(null);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [renaming, setRenaming] = useState(null);
@@ -100,7 +99,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
     } catch (err) { alert(err.response?.data?.message || "Failed to delete"); }
   };
 
-  // ✅ Handle preview - text files fetch content, others use URL
   const handlePreview = async (fileName) => {
     const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
     const fileUrl = `${BACKEND_URL}/uploads/${user.userId}/${selectedCategory}/${filePath}`;
@@ -155,7 +153,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
 
   return (
     <div>
-      {/* Breadcrumb */}
       <div style={{ display: "flex", alignItems: "center", color: "#fff", marginBottom: "1rem",
         background: "rgba(0,0,0,0.2)", padding: "0.75rem", borderRadius: "8px", fontSize: "0.95rem" }}>
         <FaHome style={{ marginRight: "5px" }} />
@@ -173,7 +170,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
         ))}
       </div>
 
-      {/* Toolbar */}
       <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
         {currentPath && (
           <button onClick={goBack} style={{ background: "rgba(255,255,255,0.15)", color: "#fff",
@@ -190,7 +186,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
         </div>
       </div>
 
-      {/* Search bar */}
       <div style={{ marginBottom: "1rem", position: "relative" }}>
         <input type="text" placeholder="🔍 Search files and folders..."
           value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -205,7 +200,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
         )}
       </div>
 
-      {/* Create Folder Form */}
       {creatingFolder && (
         <div style={{ background: "rgba(76,175,80,0.2)", border: "2px solid #4CAF50",
           padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>
@@ -227,9 +221,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
 
       {error && <p style={{ color: "#ff6b6b" }}>{error}</p>}
 
-      {/* Items Grid */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "1rem" }}>
-        {/* Folders */}
         {filteredFolders.map(folder => (
           <div key={folder} style={{ background: "rgba(255,255,255,0.1)", padding: "1rem",
             borderRadius: "10px", textAlign: "center", cursor: "pointer",
@@ -266,7 +258,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
           </div>
         ))}
 
-        {/* Files */}
         {filteredFiles.map(file => (
           <div key={file} style={{ background: "rgba(255,255,255,0.1)", padding: "1rem",
             borderRadius: "10px", textAlign: "center", border: "1px solid rgba(255,255,255,0.2)" }}>
@@ -291,7 +282,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
               <p style={{ color: "#fff", margin: "0.5rem 0", wordBreak: "break-word", fontSize: "0.85rem" }}>{file}</p>
             )}
             <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center", flexWrap: "wrap" }}>
-              {/* ✅ Preview button shows for ALL previewable files */}
               {canPreview(file) && (
                 <button onClick={() => handlePreview(file)} style={{
                   background: "#9C27B0", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
@@ -317,17 +307,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
           <p style={{ fontSize: "0.9rem", marginTop: "0.5rem" }}>Click "New Folder" to create folders or upload files!</p>
         </div>
       )}
-      {totalItems > 0 && filteredTotal === 0 && (
-        <div style={{ textAlign: "center", color: "rgba(255,255,255,0.7)", padding: "3rem" }}>
-          <p>🔍 No results for "{searchQuery}"</p>
-          <button onClick={() => setSearchQuery("")} style={{
-            background: "rgba(255,255,255,0.2)", border: "none", color: "#fff",
-            padding: "8px 16px", borderRadius: "8px", cursor: "pointer", marginTop: "0.5rem"
-          }}>Clear Search</button>
-        </div>
-      )}
 
-      {/* ✅ Preview Modal - supports images, PDF, video, and TEXT files */}
       {previewFile && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
           background: "rgba(0,0,0,0.95)", zIndex: 9999, display: "flex", flexDirection: "column",
@@ -342,25 +322,21 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
           <div style={{ maxWidth: "90%", width: "800px", maxHeight: "70vh", marginBottom: "1rem",
             overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
 
-            {/* Image preview */}
             {isImage(previewFile.fileName) && (
               <img src={previewFile.fileUrl} alt={previewFile.fileName}
                 style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: "10px" }} />
             )}
 
-            {/* PDF preview */}
             {isPdf(previewFile.fileName) && (
               <iframe src={previewFile.fileUrl} style={{ width: "100%", height: "65vh", border: "none", borderRadius: "10px" }} title="PDF" />
             )}
 
-            {/* Video preview */}
             {isVideo(previewFile.fileName) && (
               <video controls style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: "10px" }}>
                 <source src={previewFile.fileUrl} />
               </video>
             )}
 
-            {/* ✅ Text/code/conf/yml preview */}
             {isText(previewFile.fileName) && (
               <pre style={{
                 background: "rgba(255,255,255,0.05)", color: "#e0e0e0", padding: "1.5rem",
