@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 import UploadedFiles from "./UploadedFiles";
 import axios from "axios";
 
@@ -34,7 +34,7 @@ function Upload({ user, onLogout }) {
     }
   }, []);
 
-  const fetchStorage = async () => {
+  const fetchStorage = useCallback(async () => {
     if (!user?.userId) return;
     try {
       const res = await axios.get(`${BACKEND_URL}/storage/${user.userId}`);
@@ -42,7 +42,7 @@ function Upload({ user, onLogout }) {
     } catch (err) {
       console.log("Storage fetch failed:", err.message);
     }
-  };
+  }, [user?.userId]);
 
   useEffect(() => {
     const testServer = async () => {
@@ -59,11 +59,11 @@ function Upload({ user, onLogout }) {
       if (serverStatus !== "connected") testServer();
     }, 10000);
     return () => clearInterval(interval);
-  }, [serverStatus]);
+  }, [serverStatus, fetchStorage]);
 
   useEffect(() => {
     if (refreshKey > 0) fetchStorage();
-  }, [refreshKey]);
+  }, [refreshKey, fetchStorage]);
 
   const uploadFiles = async (fileEntries) => {
     if (!user?.userId) { alert("Error: Please log in again."); return; }
