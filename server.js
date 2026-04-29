@@ -2,16 +2,15 @@ const express = require("express");
 const AWS = require("aws-sdk");
 const cors = require("cors");
 const multer = require("multer");
-const path = require("path");
 const app = express();
 
-// 🔑 BACKBLAZE B2 - YOUR KEYS (10GB FREE FOREVER!)
+// 🔑 BACKBLAZE B2 - Load from environment variables (never hardcode keys!)
 const B2_CONFIG = {
-  accessKeyId: "005351b4969f7ee0000000001",
-  secretAccessKey: "K0052u0bB6bbW47cr1RHxHWjjEci+BM",
-  endpoint: "https://s3.us-east-005.backblazeb2.com",
-  region: "us-east-005",
-  bucket: "databox-files"
+  accessKeyId: process.env.B2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.B2_SECRET_ACCESS_KEY,
+  endpoint: process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com",
+  region: process.env.B2_REGION || "us-east-005",
+  bucket: process.env.B2_BUCKET || "databox-files"
 };
 
 // AWS S3 client for Backblaze B2 (S3-compatible)
@@ -33,7 +32,7 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-folder']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-folder', 'Range']
 }));
 
 app.use(express.json());
@@ -46,27 +45,27 @@ app.post("/upload", upload.array("file"), async (req, res) => {
   try {
     const userId = req.body?.userId || req.get('x-user-id') || "guest";
     const folder = req.body?.folder || req.get('x-folder') || "images";
-    
+
     const results = [];
     for (const file of req.files || []) {
       const key = `${userId}/${folder}/${file.originalname}`;
-      
+
       const params = {
         Bucket: B2_CONFIG.bucket,
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype
       };
-      
+
       const uploadResult = await s3.upload(params).promise();
       console.log("✅ Uploaded to B2:", key);
-      results.push({ 
-        name: file.originalname, 
+      results.push({
+        name: file.originalname,
         url: uploadResult.Location,
-        size: file.size 
+        size: file.size
       });
     }
-    
+
     res.json({ status: "ok", files: results });
   } catch (error) {
     console.error("Upload error:", error);
@@ -86,16 +85,16 @@ app.get('/storage/:userId', async (req, res) => {
       Bucket: B2_CONFIG.bucket,
       Prefix: `${userId}/`
     };
-    
+
     let total = 0;
     let byCategory = { images: 0, videos: 0, documents: 0 };
-    
+
     const listAllObjects = async (ContinuationToken = null) => {
       const listParams = { ...params };
       if (ContinuationToken) listParams.ContinuationToken = ContinuationToken;
-      
+
       const data = await s3.listObjectsV2(listParams).promise();
-      
+
       for (const obj of data.Contents || []) {
         total += obj.Size;
         const pathParts = obj.Key.replace(`${userId}/`, '').split('/');
@@ -104,12 +103,12 @@ app.get('/storage/:userId', async (req, res) => {
           byCategory[category] += obj.Size;
         }
       }
-      
+
       if (data.IsTruncated && data.NextContinuationToken) {
         await listAllObjects(data.NextContinuationToken);
       }
     };
-    
+
     await listAllObjects();
     res.json({ total, byCategory });
   } catch (error) {
@@ -122,31 +121,31 @@ app.get('/browse/:userId/:category', async (req, res) => {
   const { userId, category } = req.params;
   const subPath = req.query.path || "";
   const prefix = subPath ? `${userId}/${category}/${subPath}/` : `${userId}/${category}/`;
-  
+
   try {
     const params = {
       Bucket: B2_CONFIG.bucket,
       Prefix: prefix,
       Delimiter: '/'
     };
-    
+
     const data = await s3.listObjectsV2(params).promise();
-    
+
     const folders = [];
     const files = [];
-    
+
     for (const commonPrefix of data.CommonPrefixes || []) {
       const folderName = commonPrefix.Prefix.replace(prefix, '').replace('/', '');
       if (folderName) folders.push(folderName);
     }
-    
+
     for (const obj of data.Contents || []) {
       const fileName = obj.Key.replace(prefix, '');
       if (fileName && !fileName.endsWith('/')) {
         files.push(fileName);
       }
     }
-    
+
     console.log(`📂 Browse: ${prefix} → Folders: ${folders.length}, Files: ${files.length}`);
     res.json({ folders, files });
   } catch (error) {
@@ -160,15 +159,15 @@ app.get('/preview/:userId/:category', async (req, res) => {
   const { userId, category } = req.params;
   const filePath = req.query.file;
   if (!filePath) return res.status(400).json({ status: "error", message: "Missing file" });
-  
+
   const key = `${userId}/${category}/${filePath}`;
-  
+
   try {
     const data = await s3.getObject({
       Bucket: B2_CONFIG.bucket,
       Key: key
     }).promise();
-    
+
     const content = data.Body.toString('utf8');
     res.json({ status: "ok", content });
   } catch (error) {
@@ -182,20 +181,19 @@ app.post('/create-folder', async (req, res) => {
   if (!userId || !category || !folderName) {
     return res.status(400).json({ status: "error", message: "Missing required fields" });
   }
-  
-  const folderKey = subPath 
+
+  const folderKey = subPath
     ? `${userId}/${category}/${subPath}/${folderName}/`
     : `${userId}/${category}/${folderName}/`;
-  
+
   try {
-    // Create empty object to mark folder
     await s3.putObject({
       Bucket: B2_CONFIG.bucket,
       Key: folderKey,
       Body: '',
       ContentType: 'application/x-directory'
     }).promise();
-    
+
     console.log("✅ Created folder:", folderKey);
     res.json({ status: "ok", message: "Folder created" });
   } catch (error) {
@@ -210,22 +208,20 @@ app.post('/rename', async (req, res) => {
   if (!userId || !category || !oldName || !newName) {
     return res.status(400).json({ status: "error", message: "Missing required fields" });
   }
-  
+
   const basePath = subPath ? `${userId}/${category}/${subPath}/` : `${userId}/${category}/`;
   const oldKey = `${basePath}${oldName}${isFolder ? '/' : ''}`;
   const newKey = `${basePath}${newName}${isFolder ? '/' : ''}`;
-  
+
   try {
-    // Copy to new location
     await s3.copyObject({
       Bucket: B2_CONFIG.bucket,
       CopySource: `${B2_CONFIG.bucket}/${oldKey}`,
       Key: newKey
     }).promise();
-    
-    // Delete old
+
     await s3.deleteObject({ Bucket: B2_CONFIG.bucket, Key: oldKey }).promise();
-    
+
     console.log("✅ Renamed:", oldKey, "→", newKey);
     res.json({ status: "ok", message: "Renamed successfully" });
   } catch (error) {
@@ -240,17 +236,16 @@ app.post('/delete', async (req, res) => {
   if (!userId || !category || !fileName) {
     return res.status(400).json({ status: "error", message: "Missing required fields" });
   }
-  
+
   const basePath = subPath ? `${userId}/${category}/${subPath}/` : `${userId}/${category}/`;
   const key = `${basePath}${fileName}${isFolder ? '/' : ''}`;
-  
+
   try {
     if (isFolder) {
-      // Delete folder and contents
       const listParams = { Bucket: B2_CONFIG.bucket, Prefix: key };
       const data = await s3.listObjectsV2(listParams).promise();
       const deleteObjects = data.Contents.map(obj => ({ Key: obj.Key }));
-      
+
       if (deleteObjects.length > 0) {
         await s3.deleteObjects({
           Bucket: B2_CONFIG.bucket,
@@ -262,7 +257,7 @@ app.post('/delete', async (req, res) => {
       await s3.deleteObject({ Bucket: B2_CONFIG.bucket, Key: key }).promise();
       console.log("✅ Deleted file:", key);
     }
-    
+
     res.json({ status: "ok", message: "Deleted successfully" });
   } catch (error) {
     console.error("Delete error:", error);
@@ -270,21 +265,21 @@ app.post('/delete', async (req, res) => {
   }
 });
 
-// ✅ Download (signed URL)
+// ✅ Download (signed URL redirect)
 app.get('/download/:userId/:category', async (req, res) => {
   const { userId, category } = req.params;
   const filePath = req.query.file;
   if (!filePath) return res.status(400).json({ status: "error", message: "Missing file parameter" });
-  
+
   const key = `${userId}/${category}/${filePath}`;
-  
+
   try {
     const url = s3.getSignedUrl('getObject', {
       Bucket: B2_CONFIG.bucket,
       Key: key,
-      Expires: 3600 // 1 hour
+      Expires: 3600
     });
-    
+
     res.redirect(url);
   } catch (error) {
     console.error("Download error:", error);
@@ -292,20 +287,76 @@ app.get('/download/:userId/:category', async (req, res) => {
   }
 });
 
-// ✅ Serve uploaded files (for preview)
+// ✅ Serve files for preview (images, PDFs, text)
+// For videos: returns a signed URL so the browser video player can stream it properly
 app.get('/uploads/:userId/:category/*', async (req, res) => {
   const { userId, category } = req.params;
   const filePath = req.params[0];
   const key = `${userId}/${category}/${filePath}`;
-  
+
+  const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
+  const ext = filePath.split('.').pop().toLowerCase();
+  const isVideoFile = videoExtensions.includes(ext);
+
   try {
-    const url = s3.getSignedUrl('getObject', {
-      Bucket: B2_CONFIG.bucket,
-      Key: key,
-      Expires: 3600
-    });
-    
-    res.redirect(url);
+    if (isVideoFile) {
+      // ✅ For videos: proxy stream with Range support so browser player works properly
+      const rangeHeader = req.headers.range;
+
+      // Get file size first
+      const headData = await s3.headObject({ Bucket: B2_CONFIG.bucket, Key: key }).promise();
+      const fileSize = headData.ContentLength;
+      const contentType = headData.ContentType || 'video/mp4';
+
+      if (rangeHeader) {
+        // Parse Range header e.g. "bytes=0-1023"
+        const parts = rangeHeader.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+        const chunkSize = (end - start) + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type': contentType,
+        });
+
+        const stream = s3.getObject({
+          Bucket: B2_CONFIG.bucket,
+          Key: key,
+          Range: `bytes=${start}-${end}`
+        }).createReadStream();
+
+        stream.pipe(res);
+        stream.on('error', (err) => {
+          console.error("Stream error:", err);
+          if (!res.headersSent) res.status(500).send("Stream error");
+        });
+      } else {
+        // Full video (no range)
+        res.writeHead(200, {
+          'Content-Length': fileSize,
+          'Content-Type': contentType,
+          'Accept-Ranges': 'bytes',
+        });
+
+        const stream = s3.getObject({ Bucket: B2_CONFIG.bucket, Key: key }).createReadStream();
+        stream.pipe(res);
+        stream.on('error', (err) => {
+          console.error("Stream error:", err);
+          if (!res.headersSent) res.status(500).send("Stream error");
+        });
+      }
+    } else {
+      // ✅ For non-video files: signed URL redirect (images, PDFs, text)
+      const url = s3.getSignedUrl('getObject', {
+        Bucket: B2_CONFIG.bucket,
+        Key: key,
+        Expires: 3600
+      });
+      res.redirect(url);
+    }
   } catch (error) {
     console.error("Preview error:", error);
     res.status(404).send("File not found");
@@ -319,6 +370,6 @@ app.listen(PORT, () => {
   console.log(`   - Bucket: ${B2_CONFIG.bucket}`);
   console.log(`   - Endpoint: ${B2_CONFIG.endpoint}`);
   console.log(`   - Region: ${B2_CONFIG.region}`);
-  console.log(`✅ 10GB FREE storage - Files stored PERMANENTLY!`);
+  console.log(`✅ Video streaming with Range support enabled!`);
   console.log(`✅ Render free tier PERFECTLY supported!`);
 });

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { FcImageFile, FcVideoFile, FcFolder } from "react-icons/fc";
 import {
   FaFilePdf, FaFileWord, FaFileExcel, FaFilePowerpoint, FaFileArchive,
   FaFileAudio, FaFileCode, FaFileAlt, FaFile, FaEye, FaDownload, FaTimes,
-  FaFolderPlus, FaChevronRight, FaHome, FaEdit, FaTrash
+  FaFolderPlus, FaChevronRight, FaHome, FaEdit, FaTrash, FaPlay, FaLanguage
 } from "react-icons/fa";
 
 const BACKEND_URL = window.location.hostname === "localhost"
@@ -13,13 +13,168 @@ const BACKEND_URL = window.location.hostname === "localhost"
 
 const isImage = (f) => ["jpg","jpeg","png","gif","bmp","webp","svg"].includes(f.split('.').pop().toLowerCase());
 const isPdf = (f) => f.split('.').pop().toLowerCase() === "pdf";
-const isVideo = (f) => ["mp4","webm","ogg","mov"].includes(f.split('.').pop().toLowerCase());
+const isVideo = (f) => ["mp4","webm","ogg","mov","mkv","avi","wmv","flv","m4v","3gp"].includes(f.split('.').pop().toLowerCase());
+const isBrowserPlayable = (f) => ["mp4","webm","ogg","mov"].includes(f.split('.').pop().toLowerCase());
 const isText = (f) => {
   const ext = f.split('.').pop().toLowerCase();
   return ["txt","md","json","xml","csv","conf","config","ini","log","yml","yaml",
           "sh","bat","env","js","py","html","css","ts","jsx","tsx","sql","toml"].includes(ext);
 };
 const canPreview = (f) => isImage(f) || isPdf(f) || isVideo(f) || isText(f);
+
+// Language label map
+const LANG_LABELS = {
+  eng: "English", jpn: "Japanese", hin: "Hindi", tam: "Tamil", tel: "Telugu",
+  kan: "Kannada", mal: "Malayalam", ben: "Bengali", mar: "Marathi", pun: "Punjabi",
+  kor: "Korean", zho: "Chinese", chi: "Chinese", spa: "Spanish", fre: "French",
+  fra: "French", ger: "German", deu: "German", por: "Portuguese", rus: "Russian",
+  ara: "Arabic", ita: "Italian", tur: "Turkish", vie: "Vietnamese", tha: "Thai",
+  ind: "Indonesian", may: "Malay", und: "Unknown",
+};
+
+function getLanguageLabel(track, index) {
+  if (track.language && track.language !== "und") {
+    const label = LANG_LABELS[track.language] || track.language.toUpperCase();
+    return track.label ? `${label} — ${track.label}` : label;
+  }
+  if (track.label) return track.label;
+  return `Track ${index + 1}`;
+}
+
+// ✅ VideoPlayer with audio language switcher
+function VideoPlayer({ fileUrl, fileName }) {
+  const videoRef = useRef(null);
+  const [audioTracks, setAudioTracks] = useState([]);
+  const [activeTrack, setActiveTrack] = useState(0);
+  const [trackSupported, setTrackSupported] = useState(false);
+  const [videoError, setVideoError] = useState(false);
+
+  useEffect(() => {
+    setAudioTracks([]);
+    setActiveTrack(0);
+    setVideoError(false);
+    setTrackSupported(false);
+  }, [fileUrl]);
+
+  const handleVideoLoaded = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.audioTracks && video.audioTracks.length > 0) {
+      const tracks = [];
+      for (let i = 0; i < video.audioTracks.length; i++) {
+        tracks.push({
+          language: video.audioTracks[i].language || "",
+          label: video.audioTracks[i].label || "",
+          id: video.audioTracks[i].id,
+        });
+      }
+      setAudioTracks(tracks);
+      setTrackSupported(true);
+      video.audioTracks[0].enabled = true;
+      for (let i = 1; i < video.audioTracks.length; i++) {
+        video.audioTracks[i].enabled = false;
+      }
+    }
+  };
+
+  const switchTrack = (index) => {
+    const video = videoRef.current;
+    if (!video || !video.audioTracks) return;
+    for (let i = 0; i < video.audioTracks.length; i++) {
+      video.audioTracks[i].enabled = i === index;
+    }
+    setActiveTrack(index);
+  };
+
+  if (videoError) {
+    return (
+      <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px",
+        padding: "3rem", border: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
+        <FcVideoFile style={{ fontSize: "5rem", marginBottom: "1rem" }} />
+        <p style={{ color: "#fff", fontSize: "1rem", marginBottom: "0.5rem" }}>⚠️ Cannot play this video in browser</p>
+        <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.85rem" }}>
+          Please download and open with VLC Media Player.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ width: "100%", textAlign: "center" }}>
+      <video
+        ref={videoRef}
+        controls
+        autoPlay
+        onLoadedMetadata={handleVideoLoaded}
+        onError={() => setVideoError(true)}
+        style={{ maxWidth: "100%", maxHeight: "58vh", borderRadius: "10px",
+          background: "#000", width: "100%" }}
+      >
+        <source src={fileUrl} />
+        Your browser does not support this video format.
+      </video>
+
+      {/* ✅ Language switcher — shows only if multiple audio tracks detected */}
+      {trackSupported && audioTracks.length > 1 && (
+        <div style={{ marginTop: "1rem", background: "rgba(255,255,255,0.08)",
+          borderRadius: "12px", padding: "1rem", border: "1px solid rgba(255,255,255,0.15)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px",
+            justifyContent: "center", marginBottom: "0.75rem" }}>
+            <FaLanguage style={{ color: "#4fc3f7", fontSize: "1.2rem" }} />
+            <span style={{ color: "#fff", fontWeight: "600", fontSize: "0.95rem" }}>
+              Audio Language
+            </span>
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}>
+              ({audioTracks.length} tracks found)
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
+            {audioTracks.map((track, index) => (
+              <button
+                key={index}
+                onClick={() => switchTrack(index)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: "20px",
+                  border: activeTrack === index
+                    ? "2px solid #4fc3f7"
+                    : "1px solid rgba(255,255,255,0.2)",
+                  background: activeTrack === index
+                    ? "linear-gradient(135deg, #0288d1, #4fc3f7)"
+                    : "rgba(255,255,255,0.08)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  fontSize: "0.85rem",
+                  fontWeight: activeTrack === index ? "700" : "400",
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}
+              >
+                {activeTrack === index && <span>🔊</span>}
+                {getLanguageLabel(track, index)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Tip for single-track or unsupported browsers */}
+      {!trackSupported && (
+        <div style={{ marginTop: "0.75rem", color: "rgba(255,255,255,0.4)", fontSize: "0.75rem" }}>
+          💡 Multi-audio track switching works in Chrome/Edge. For full language control, use VLC.
+        </div>
+      )}
+
+      {trackSupported && audioTracks.length === 1 && (
+        <div style={{ marginTop: "0.75rem", color: "rgba(255,255,255,0.4)", fontSize: "0.75rem" }}>
+          🎵 Single audio track detected — {getLanguageLabel(audioTracks[0], 0)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, currentPath, setCurrentPath }) {
   const [items, setItems] = useState({ folders: [], files: [] });
@@ -104,7 +259,6 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
     const fileUrl = `${BACKEND_URL}/uploads/${user.userId}/${selectedCategory}/${filePath}`;
     setPreviewContent(null);
     setPreviewFile({ fileName, fileUrl, filePath });
-
     if (isText(fileName)) {
       try {
         const res = await axios.get(`${BACKEND_URL}/preview/${user.userId}/${selectedCategory}?file=${encodeURIComponent(filePath)}`);
@@ -133,7 +287,7 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
     const ext = filename.split(".").pop().toLowerCase();
     const style = { fontSize: "2.5rem", marginBottom: "0.5rem" };
     if (["jpg","jpeg","png","gif","bmp","webp","svg"].includes(ext)) return <FcImageFile style={style} />;
-    if (["mp4","avi","mov","wmv","flv","mkv","webm"].includes(ext)) return <FcVideoFile style={style} />;
+    if (["mp4","avi","mov","wmv","flv","mkv","webm","m4v","3gp"].includes(ext)) return <FcVideoFile style={style} />;
     if (ext === "pdf") return <FaFilePdf style={{ ...style, color: "#e74c3c" }} />;
     if (["doc","docx"].includes(ext)) return <FaFileWord style={{ ...style, color: "#185abd" }} />;
     if (["xls","xlsx"].includes(ext)) return <FaFileExcel style={{ ...style, color: "#21a366" }} />;
@@ -282,7 +436,14 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
               <p style={{ color: "#fff", margin: "0.5rem 0", wordBreak: "break-word", fontSize: "0.85rem" }}>{file}</p>
             )}
             <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center", flexWrap: "wrap" }}>
-              {canPreview(file) && (
+              {isVideo(file) && (
+                <button onClick={() => handlePreview(file)} title="Play video" style={{
+                  background: "linear-gradient(135deg, #ff6b35, #f7931e)",
+                  color: "#fff", border: "none", padding: "4px 8px", borderRadius: "4px",
+                  cursor: "pointer", fontSize: "11px", display: "flex", alignItems: "center", gap: "3px"
+                }}><FaPlay /> Play</button>
+              )}
+              {canPreview(file) && !isVideo(file) && (
                 <button onClick={() => handlePreview(file)} style={{
                   background: "#9C27B0", color: "#fff", border: "none", padding: "4px 6px", borderRadius: "4px", cursor: "pointer", fontSize: "11px"
                 }}><FaEye /></button>
@@ -313,13 +474,16 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
           background: "rgba(0,0,0,0.95)", zIndex: 9999, display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center", padding: "2rem" }}
           onClick={() => { setPreviewFile(null); setPreviewContent(null); }}>
+
           <button onClick={() => { setPreviewFile(null); setPreviewContent(null); }} style={{
             position: "absolute", top: "20px", right: "20px", background: "rgba(255,255,255,0.2)",
             border: "none", color: "#fff", fontSize: "30px", cursor: "pointer", borderRadius: "50%",
             width: "50px", height: "50px" }}><FaTimes /></button>
-          <h2 style={{ color: "#fff", marginBottom: "1rem", fontSize: "1rem" }}>{previewFile.fileName}</h2>
 
-          <div style={{ maxWidth: "90%", width: "800px", maxHeight: "70vh", marginBottom: "1rem",
+          <h2 style={{ color: "#fff", marginBottom: "1rem", fontSize: "1rem", maxWidth: "80%",
+            textAlign: "center", wordBreak: "break-word" }}>{previewFile.fileName}</h2>
+
+          <div style={{ maxWidth: "90%", width: "950px", maxHeight: "80vh", marginBottom: "1rem",
             overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
 
             {isImage(previewFile.fileName) && (
@@ -332,9 +496,21 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
             )}
 
             {isVideo(previewFile.fileName) && (
-              <video controls style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: "10px" }}>
-                <source src={previewFile.fileUrl} />
-              </video>
+              isBrowserPlayable(previewFile.fileName) ? (
+                <VideoPlayer fileUrl={previewFile.fileUrl} fileName={previewFile.fileName} />
+              ) : (
+                <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "12px",
+                  padding: "3rem", border: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
+                  <FcVideoFile style={{ fontSize: "5rem", marginBottom: "1rem" }} />
+                  <p style={{ color: "#fff", fontSize: "1.1rem", marginBottom: "0.5rem" }}>
+                    🎬 {previewFile.fileName}
+                  </p>
+                  <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.9rem" }}>
+                    MKV / AVI files cannot be played in the browser.<br />
+                    Please download and use VLC or MPC-HC.
+                  </p>
+                </div>
+              )
             )}
 
             {isText(previewFile.fileName) && (
