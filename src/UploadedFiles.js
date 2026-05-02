@@ -22,7 +22,6 @@ const isText = (f) => {
 };
 const canPreview = (f) => isImage(f) || isPdf(f) || isVideo(f) || isText(f);
 
-// Language label map
 const LANG_LABELS = {
   eng: "English", jpn: "Japanese", hin: "Hindi", tam: "Tamil", tel: "Telugu",
   kan: "Kannada", mal: "Malayalam", ben: "Bengali", mar: "Marathi", pun: "Punjabi",
@@ -41,7 +40,6 @@ function getLanguageLabel(track, index) {
   return `Track ${index + 1}`;
 }
 
-// ✅ VideoPlayer with audio language switcher
 function VideoPlayer({ fileUrl, fileName }) {
   const videoRef = useRef(null);
   const [audioTracks, setAudioTracks] = useState([]);
@@ -111,47 +109,27 @@ function VideoPlayer({ fileUrl, fileName }) {
           background: "#000", width: "100%" }}
       >
         <source src={fileUrl} />
-        Your browser does not support this video format.
       </video>
 
-      {/* ✅ Language switcher — shows only if multiple audio tracks detected */}
       {trackSupported && audioTracks.length > 1 && (
         <div style={{ marginTop: "1rem", background: "rgba(255,255,255,0.08)",
           borderRadius: "12px", padding: "1rem", border: "1px solid rgba(255,255,255,0.15)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px",
             justifyContent: "center", marginBottom: "0.75rem" }}>
             <FaLanguage style={{ color: "#4fc3f7", fontSize: "1.2rem" }} />
-            <span style={{ color: "#fff", fontWeight: "600", fontSize: "0.95rem" }}>
-              Audio Language
-            </span>
-            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}>
-              ({audioTracks.length} tracks found)
-            </span>
+            <span style={{ color: "#fff", fontWeight: "600", fontSize: "0.95rem" }}>Audio Language</span>
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem" }}>({audioTracks.length} tracks)</span>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
             {audioTracks.map((track, index) => (
-              <button
-                key={index}
-                onClick={() => switchTrack(index)}
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: "20px",
-                  border: activeTrack === index
-                    ? "2px solid #4fc3f7"
-                    : "1px solid rgba(255,255,255,0.2)",
-                  background: activeTrack === index
-                    ? "linear-gradient(135deg, #0288d1, #4fc3f7)"
-                    : "rgba(255,255,255,0.08)",
-                  color: "#fff",
-                  cursor: "pointer",
-                  fontSize: "0.85rem",
-                  fontWeight: activeTrack === index ? "700" : "400",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px"
-                }}
-              >
+              <button key={index} onClick={() => switchTrack(index)} style={{
+                padding: "8px 18px", borderRadius: "20px",
+                border: activeTrack === index ? "2px solid #4fc3f7" : "1px solid rgba(255,255,255,0.2)",
+                background: activeTrack === index ? "linear-gradient(135deg, #0288d1, #4fc3f7)" : "rgba(255,255,255,0.08)",
+                color: "#fff", cursor: "pointer", fontSize: "0.85rem",
+                fontWeight: activeTrack === index ? "700" : "400",
+                transition: "all 0.2s", display: "flex", alignItems: "center", gap: "6px"
+              }}>
                 {activeTrack === index && <span>🔊</span>}
                 {getLanguageLabel(track, index)}
               </button>
@@ -160,16 +138,9 @@ function VideoPlayer({ fileUrl, fileName }) {
         </div>
       )}
 
-      {/* Tip for single-track or unsupported browsers */}
       {!trackSupported && (
         <div style={{ marginTop: "0.75rem", color: "rgba(255,255,255,0.4)", fontSize: "0.75rem" }}>
           💡 Multi-audio track switching works in Chrome/Edge. For full language control, use VLC.
-        </div>
-      )}
-
-      {trackSupported && audioTracks.length === 1 && (
-        <div style={{ marginTop: "0.75rem", color: "rgba(255,255,255,0.4)", fontSize: "0.75rem" }}>
-          🎵 Single audio track detected — {getLanguageLabel(audioTracks[0], 0)}
         </div>
       )}
     </div>
@@ -269,18 +240,27 @@ function UploadedFiles({ user, refreshKey, setRefreshKey, selectedCategory, curr
     }
   };
 
+  // ✅ FIXED: get signed URL from backend then open it directly — no fetch() needed
   const handleDownload = async (fileName) => {
     const filePath = currentPath ? `${currentPath}/${fileName}` : fileName;
-    const downloadUrl = `${BACKEND_URL}/download/${user.userId}/${selectedCategory}?file=${encodeURIComponent(filePath)}`;
     try {
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      // Ask backend for a signed URL
+      const res = await axios.get(
+        `${BACKEND_URL}/signed-url/${user.userId}/${selectedCategory}?file=${encodeURIComponent(filePath)}`
+      );
+      const signedUrl = res.data.url;
+
+      // Open signed URL directly in a new tab — browser handles the download
       const a = document.createElement('a');
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click();
-      window.URL.revokeObjectURL(url); document.body.removeChild(a);
-    } catch (err) { alert("Download failed: " + err.message); }
+      a.href = signedUrl;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      alert("Download failed: " + (err.response?.data?.message || err.message));
+    }
   };
 
   const getFileIcon = filename => {
